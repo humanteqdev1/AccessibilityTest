@@ -1,11 +1,7 @@
 package com.example.back.accessibilitytest
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.Intent
-import android.os.Build
 import android.util.Log
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -84,23 +80,26 @@ class MyAccessibilityService : AccessibilityService() {
         info?.let {
             for (i in 0 until info.childCount) {
                 val child = info.getChild(i)
-//                Log.e("info child", "${child.className}")
-//                Log.e("info child", "${child.text}")
-                when (child?.className) {
+                child?.let {
+                    //                                    Log.e("info child", "${child.text} ${child.availableExtraData} ${child.contentDescription} ${child.labelFor} ${child.labeledBy} ${child.textSelectionStart} ")
+//                    Log.e("info child", "${child.className} ${child.text}")
+                    when (child.className) {
 //                    "android.widget.TextView" -> {
-//                        Log.e("info child", "${child.text}")
+//                        Log.e("--- TEXTVIEW", "${child.text} ${child.viewIdResourceName} ${child.windowId} ${child.className}")
 //                    }
 //                    "android.widget.EditText" -> {
-//                        Log.e("info child", "${child.text}")
+//                        Log.e("--- EDITTEXT", "${child.text} ${child.viewIdResourceName} ${child.windowId} ${child.className}")
 //                    }
-                    "android.widget.ImageView" -> {
-                        Log.e("info child", "${child}")
-
-//                        Log.e("info child extra", "${child}")
-                    }
+//                    "android.widget.ImageView" -> {
+//                        Log.e("info child", "${child}")
+//
+////                        Log.e("info child extra", "${child}")
+//                    }
 //                    "android.widget.ImageButton" -> {
 //                        Log.e("info child", "${child}")
 //                    }
+                    }
+
                 }
 
                 printChildren(child)
