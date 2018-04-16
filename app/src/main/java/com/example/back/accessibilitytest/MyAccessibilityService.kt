@@ -4,106 +4,194 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.accessibility.AccessibilityWindowInfo
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.os.Build
+import android.os.SystemClock
+import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
+import android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+import android.view.accessibility.AccessibilityRecord
+
 
 /**
  * Created by back on 26.03.18.
  */
 class MyAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {
-        Log.e("MyAccess", "interrupted")
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        val tempInfo = serviceInfo
+        tempInfo.feedbackType = AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+
+        tempInfo.eventTypes = tempInfo.eventTypes or
+                AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+
+        tempInfo.flags = tempInfo.flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+        tempInfo.flags = tempInfo.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            tempInfo.flags = tempInfo.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        serviceInfo = tempInfo
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        Log.e("MyAccess", "----------------------------------")
-//        Log.e("MyAccess", "event: $event")
-//        Log.e("MyAccess", "type: ${event?.eventType}")
-//        Log.e("MyAccess", "action: ${event?.action}")
-//        Log.e("MyAccess", "eventTime: ${event?.eventTime}")
-//        Log.e("MyAccess", "packageName: ${event?.packageName}")
-//        Log.e("MyAccess", "recordCount: ${event?.recordCount}")
-//        Log.e("MyAccess", "movementGranularity: ${event?.movementGranularity}")
+        event?.let {
+            if(it.eventType == TYPE_WINDOW_CONTENT_CHANGED)
+                collect(rootInActiveWindow, arrayListOf(MOZILLA_FIREFOX, CHROME), arrayListOf(URL), it)
 
-        val info = event?.source
-        val rootInfo = rootInActiveWindow
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-//
-//            val windowinfo = windows
-//            Log.e("windowinfo", "${windows.size} $windowinfo.")
-//            printChildren(windowinfo)
-//        }
+            val eventTextPair = getTextFromEvents(event,
+                    arrayListOf(MOZILLA_FIREFOX, CHROME),
+                    arrayListOf(URL),
+                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
+            if(eventTextPair != null)
+                Log.e("events", "event pair: $eventTextPair")
 
-        printChildren(info)
-        printChildren(rootInfo)
+            /**
+             * Not working for: Firefox;
+             * Works(?) for: Chrome;
+             */
+            Log.e("234", "scroll: ${getScrollPosition(event)}}")
 
 
-//        Log.e("info", "${info}")
-//        Log.e("rootInfo", "${rootInfo}")
-//        Log.e("info", "${info?.childCount}")
-//        Log.e("rootInfo", "${rootInfo?.childCount}")
-    }
-
-    private fun printChildren(info: List<AccessibilityWindowInfo>?) {
-        info?.let {
-            it.forEach {
-                Log.e("window", " $it")
+            if(urlArray.isNotEmpty()) {
+                Log.e("map", "${urlArray.size}=${urlArray.toList()}")
             }
         }
-//        info?.let {
-//            for (i in 0 until info.size) {
-//                val child = info.getChild(i)
-////                Log.e("info child", "${child.className}")
-////                Log.e("info child", "${child.text}")
-//                when (child?.className) {
-////                    "android.widget.TextView" -> {
-////                        Log.e("info child", "${child.text}")
-////                    }
-////                    "android.widget.EditText" -> {
-////                        Log.e("info child", "${child.text}")
-////                    }
-//                    "android.widget.ImageView" -> {
-//                        Log.e("info child", "${child}")
-//
-////                        Log.e("info child extra", "${child}")
-//                    }
-////                    "android.widget.ImageButton" -> {
-////                        Log.e("info child", "${child}")
-////                    }
-//                }
-//
-//                printChildren(child)
-//            }
-//        }
     }
 
-    private fun printChildren(info: AccessibilityNodeInfo?) {
-        info?.let {
-            for (i in 0 until info.childCount) {
-                val child = info.getChild(i)
-                child?.let {
-                    //                                    Log.e("info child", "${child.text} ${child.availableExtraData} ${child.contentDescription} ${child.labelFor} ${child.labeledBy} ${child.textSelectionStart} ")
-//                    Log.e("info child", "${child.className} ${child.text}")
-                    when (child.className) {
-//                    "android.widget.TextView" -> {
-//                        Log.e("--- TEXTVIEW", "${child.text} ${child.viewIdResourceName} ${child.windowId} ${child.className}")
-//                    }
-//                    "android.widget.EditText" -> {
-//                        Log.e("--- EDITTEXT", "${child.text} ${child.viewIdResourceName} ${child.windowId} ${child.className}")
-//                    }
-//                    "android.widget.ImageView" -> {
-//                        Log.e("info child", "${child}")
-//
-////                        Log.e("info child extra", "${child}")
-//                    }
-//                    "android.widget.ImageButton" -> {
-//                        Log.e("info child", "${child}")
-//                    }
-                    }
+    private fun getScrollPosition(event: AccessibilityEvent): Float {
+        val record = AccessibilityRecord.obtain(event)
+        val itemCount = event.itemCount
+        val fromIndex = event.fromIndex
 
+        // First, attempt to use (fromIndex / itemCount).
+        if (fromIndex >= 0 && itemCount > 0) {
+            return fromIndex / itemCount.toFloat()
+        }
+
+        val scrollY = record.scrollY
+        val maxScrollY = record.maxScrollY
+
+        // Next, attempt to use (scrollY / maxScrollY). This will fail if the
+        // getMaxScrollX() method is not available.
+        if (scrollY >= 0 && maxScrollY > 0) {
+            return scrollY / maxScrollY.toFloat()
+        }
+
+        // Finally, attempt to use (scrollY / itemCount).
+        // TODO(alanv): Hack from previous versions -- is it still needed?
+        return if (scrollY >= 0 && itemCount > 0 && scrollY <= itemCount) {
+            scrollY / itemCount.toFloat()
+        } else 0.5f
+    }
+
+    private fun getTextFromEvents(event: AccessibilityEvent,
+                                  packageNameList: List<String>,
+                                  collectTypeList: List<String>,
+                                  type: Int): Pair<CharSequence, CharSequence>? {
+        if(event.eventType == type) {
+            collectTypeList.forEach {
+                if(it == URL) {
+                    packageNameList.forEach {
+                        if (event.packageName == it) {
+                            return Pair("${event.contentDescription}", "${event.text}")
+                        }
+                    }
+                }
+            }
+        }
+
+        return null
+    }
+
+    private val URL = "URL"
+    private val TEXTVIEW = "android.widget.TextView"
+    private val EDITTEXT = "android.widget.EditText"
+    private val CHROME = "com.android.chrome"
+    private val MOZILLA_FIREFOX = "org.mozilla.firefox"
+    private val TELEGRAM = "org.mozilla.firefox"
+    private val MOZILLA_FIREFOX_URL_BAR_ID = "$MOZILLA_FIREFOX:id/url_bar_title"
+    private val CHROME_URL_BAR_ID = "$CHROME:id/url_bar"
+    private val MOZILLA_FIREFOX_BROWSER_TOOLBAR_ID = "org.mozilla.firefox:id/browser_toolbar"
+
+    private val urlArray = arrayListOf<Pair<String?, Long?>>()
+
+    private var prevUrl: String? = null
+    private var prevStartTime: Long = 0L
+    private fun collect(info: AccessibilityNodeInfo?,
+                        packageNameList: List<String>,
+                        collectTypeList: List<String>,
+                        event: AccessibilityEvent) {
+        info?.let {
+            for (i in 0 until it.childCount) {
+                val child = it.getChild(i)
+                child?.let {ch ->
+
+//                    if(ch.text != null)
+//                        Log.e("---", "\n\neventType: ${event.eventType}\nname: ${ch.className}\n" +
+//                                "id: ${ch.viewIdResourceName}\n" +
+//                                "text: ${ch.text}\n" +
+//                                "contentDescription: ${ch.contentDescription}\n" +
+//                                "hintText: ${ch.hintText}\n" +
+//                                "inputType: ${ch.inputType}\n" +
+//                                "labelFor: ${ch.labelFor}\n" +
+//                                "packageName: ${ch.packageName}\n" +
+//                                "eventTime: ${event.eventTime}\n" +
+//                                "error: ${ch.error}\n........\n\n")
+
+
+                    // Search for package
+                    packageNameList.forEach { packageName ->
+                        if(ch.packageName == packageName) {
+
+                            // Search for type
+                            collectTypeList.forEach {collectType ->
+
+                                // Handle collect type
+                                if (collectType == URL) {
+                                    when (ch.viewIdResourceName) {
+                                        CHROME_URL_BAR_ID -> {
+                                            collectUrls(ch, event)
+                                        }
+                                        MOZILLA_FIREFOX_URL_BAR_ID -> {
+                                            collectUrls(ch, event)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    }
                 }
 
-                printChildren(child)
+                collect(child, packageNameList, collectTypeList, event)
             }
         }
+    }
+
+    private fun collectUrls(ch: AccessibilityNodeInfo, event: AccessibilityEvent) {
+        val url = ch.text.toString()
+        if(prevUrl != url) {
+            if(prevUrl != null) {
+                urlArray.add(Pair(prevUrl.toString(),
+                        SystemClock.elapsedRealtime() - prevStartTime))
+            }
+            prevUrl = url
+            prevStartTime = event.eventTime
+        }
+
+
+//        Log.e("---", "\n\neventType: ${event.eventType}\nname: ${ch.className}\n" +
+//                "id: ${ch.viewIdResourceName}\n" +
+//                "text: ${ch.text}\n" +
+//                "contentDescription: ${ch.contentDescription}\n" +
+//                "hintText: ${ch.hintText}\n" +
+////                                                        if (ch.hintText == "Search or enter address") "Address bar" else "" +
+//                "inputType: ${ch.inputType}\n" +
+//                "labelFor: ${ch.labelFor}\n" +
+//                "packageName: ${ch.packageName}\n" +
+//                "eventTime: ${event.eventTime}\n" +
+//                "error: ${ch.error}\n........\n\n")
     }
 }
