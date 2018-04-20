@@ -15,21 +15,15 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        Log.e("starting...", "sdfe")
         if(!isAccessibilityEnabled("com.example.back.accessibilitytest/.MyAccessibilityService")) {
-            Log.e("showing...", "sdfe")
             val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
             startActivityForResult(intent, 0)
         }
-        Log.e("started", "sdfe")
     }
 
     fun Context.isAccessibilityEnabled(id: String): Boolean {
-        Log.e("isAccessibilityEnabled", "checking")
         val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        Log.e("isAccessibilityEnabled", "$am")
         val runningServices = am.getEnabledAccessibilityServiceList(AccessibilityEvent.TYPES_ALL_MASK)
-        Log.e("isAccessibilityEnabled", "$runningServices")
 
         runningServices.forEach {
             Log.e("service", " ${it.id}")

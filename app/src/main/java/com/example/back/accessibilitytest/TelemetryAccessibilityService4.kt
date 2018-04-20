@@ -5,15 +5,11 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityEvent.*
+import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.back.accessibilitytest.models.VkLikesModel
 
-
-/**
- * Created by back on 26.03.18.
- */
-class MyAccessibilityService : AccessibilityService() {
+class TelemetryAccessibilityService4 : AccessibilityService() {
     private val URL = "URL"
     private val VIEW = "android.view.View"
     private val WEBVIEW = "android.webkit.WebView"
@@ -29,11 +25,15 @@ class MyAccessibilityService : AccessibilityService() {
     private val YANDEX_BROWSER_URL_BAR_ID = "$YANDEX_BROWSER:id/bro_omnibar_address_title_view"
     private val YANDEX_BROWSER_URL_BAR_ID_2 = "$YANDEX_BROWSER:id/bro_omnibar_address_title_text"
 
+    private val VK_POST_LIKES_ID = "$VK:id/post_likes"
     private val VK_LIKES_ID = "$VK:id/likes"
     private val VK_TV_LIKES_ID = "$VK:id/tv_likes"
     private val VK_IV_LIKES_ID = "$VK:id/iv_likes"
     private val VK_POST_VIEW_ID = "$VK:id/post_view"
+    private val VK_POST_BTN_ID = "$VK:id/post_profile_btn"
     private val VK_POSTER_NAME_VIEW_ID = "$VK:id/poster_name_view"
+    private val VK_GROUP_TITLE_ID = "$VK:id/title"
+    private val VK_GROUP_LIST_ID = "$VK:id/list"
     private val MOZILLA_FIREFOX_BROWSER_TOOLBAR_ID = "org.mozilla.firefox:id/browser_toolbar"
 
     private val urlArray = arrayListOf<Triple<String?, Long?, Float>>()
@@ -44,18 +44,19 @@ class MyAccessibilityService : AccessibilityService() {
 
     var postText = ""
     var postTitle = ""
-    private var expectUpdate = false
-    private var prevLikeValue = -1
 
     private val vkLikesArray = arrayListOf<VkLikesModel>()
     private val vkClickedTextArray = arrayListOf<String>()
+    private val vkGroupArray = arrayListOf<String>()
+    private val vkGroupClicksArray = arrayListOf<String>()
 
     override fun onInterrupt() {
+        Log.e("INTERRUPT", " onInterrupt")
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        val tempInfo = serviceInfo
+                val tempInfo = serviceInfo
         tempInfo.feedbackType = AccessibilityServiceInfo.FEEDBACK_ALL_MASK
 
         tempInfo.eventTypes = tempInfo.eventTypes or
@@ -73,6 +74,8 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event?.let {
+//            showEverything(it)
+
             collect(rootInActiveWindow, arrayListOf(MOZILLA_FIREFOX,
                     CHROME,
                     YANDEX_BROWSER), arrayListOf(URL), it)
@@ -83,6 +86,7 @@ class MyAccessibilityService : AccessibilityService() {
 //                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
 //            if(eventTextPair != null)
 //                Log.e("events", "event pair: $eventTextPair")
+
 
             collectForVK(event)
 
@@ -103,9 +107,26 @@ class MyAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun showEverything(event: AccessibilityEvent) {
+        if (event.text != null && event.text.isNotEmpty())
+            Log.e("234", " ${event.source?.viewIdResourceName} ${event.text} ${event.eventType}")
+
+        var parent = event.source
+        while (parent != null) {
+            if (parent.parent != null)
+                parent = parent.parent
+            else break
+        }
+
+        showChildren(parent)
+    }
+
+
     private fun collectForVK(event: AccessibilityEvent) {
         if (event.packageName == VK) {
-            if (event.eventType == TYPE_VIEW_FOCUSED) {
+            listenForGroups(event)
+
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
                 //Collect vk clicks
                 val node = event.source
                 node?.let {
@@ -116,53 +137,68 @@ class MyAccessibilityService : AccessibilityService() {
                 }
             }
 
-            if (event.eventType == TYPE_VIEW_CLICKED || event.eventType == TYPE_VIEW_CONTEXT_CLICKED) {
-                //Collect vk likes
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_VIEW_CONTEXT_CLICKED) {
                 val node = event.source
+
+                //Collect group clicks
                 node?.let {
-                    expectUpdate = false
-                    if (node.viewIdResourceName == VK_LIKES_ID) {
-                        val parent = node.parent?.parent?.parent
-                        parent?.let {
-                            getLikeEvents(parent)
-                            if (postText.isNotEmpty() || postTitle.isNotEmpty()) {
-                                try {
-                                    val textValue = "${event.text}"
-                                    if (prevLikeValue != -1) {
-                                        val newLikeValue = textValue.slice(1..textValue.length - 2).toInt()
-                                        vkLikesArray.add(VkLikesModel(postTitle, postText,
-                                                if (newLikeValue >= prevLikeValue) "LIKED" else "DISLIKED"))
-                                        Log.e("likes", " $vkLikesArray")
-                                        prevLikeValue = newLikeValue
-                                    } else {
-                                        prevLikeValue = textValue.slice(1..textValue.length - 2).toInt()
-                                        expectUpdate = true
-                                    }
-                                } catch (ex: Exception) {
-                                    expectUpdate = false
+                    if(it.childCount == 3) {
+                        val ch = it.getChild(1)
+                        ch.let {
+                            if(ch.viewIdResourceName == VK_GROUP_TITLE_ID) {
+                                if (ch.text != null) {
+                                    vkGroupClicksArray.add("${ch.text}")
+                                    Log.e("vkGroupClicksArray", "$vkGroupClicksArray")
                                 }
                             }
                         }
                     }
+
+                    //Collect vk likes
+                    when {
+                        node.viewIdResourceName == VK_POST_BTN_ID -> {
+                            val parent = event.source?.parent?.parent?.parent?.parent
+                            parent?.let {
+                                getLikeEvents(parent)
+
+                                vkClickedTextArray.add("${event.text}")
+                                Log.e("text", "${vkClickedTextArray.size} $vkClickedTextArray")
+                            }
+                        }
+                        node.viewIdResourceName == VK_POST_LIKES_ID -> {
+                            val parent = event.source?.parent
+                            parent?.let {
+                                getLikeEvents(parent)
+
+                                addToArrayText(postTitle, postText, "USER_LIKE/DISLIKE")
+                            }
+                        }
+                        node.viewIdResourceName == VK_LIKES_ID -> {
+                            val parent = event.source?.parent?.parent?.parent?.parent
+                            parent?.let {
+                                getTextForVkPost(parent)
+                                addToArrayText(postTitle, postText, "POST_LIKE/DISLIKE")
+                            }
+                        }
+                        else -> {}
+                    }
                 }
-            } else if (expectUpdate) {
-                val node = event.source
-                node?.let {
-                    val parent = node.parent
-                    parent?.let {
-                        for (i in 0 until parent.childCount) {
-                            val ch = parent.getChild(i)
-                            ch?.let {
-                                if (ch.viewIdResourceName == VK_TV_LIKES_ID) {
-                                    try {
-                                        val newLikeValue = "${ch.text}".toInt()
-                                        vkLikesArray.add(VkLikesModel(postTitle, postText,
-                                                if (newLikeValue > prevLikeValue) "LIKED" else "DISLIKED"))
-                                        Log.e("likes", " $vkLikesArray")
-                                    } catch (ex: Exception) {
-                                    } finally {
-                                        expectUpdate = false
-                                    }
+            }
+        }
+    }
+
+    private fun listenForGroups(event: AccessibilityEvent) {
+        event.let {
+            val node = it.source
+            node?.let {
+                if (node.viewIdResourceName == VK_GROUP_LIST_ID) {
+                    for (i in 0 until node.childCount) {
+                        val child = node.getChild(i)
+                        if (child.childCount == 3) {
+                            val subChild = child.getChild(1)
+                            subChild?.let { ch ->
+                                if (ch.text != null && ch.viewIdResourceName == VK_GROUP_TITLE_ID) {
+                                    vkGroupArray.add("${ch.text}")
                                 }
                             }
                         }
@@ -170,53 +206,144 @@ class MyAccessibilityService : AccessibilityService() {
                 }
             }
         }
+        if(vkGroupArray.size > 0)
+            Log.e("--", "groups: ${vkGroupArray}")
     }
 
+    private fun addToArrayText(title: String, text: String, type: String) {
+        if (title.isNotEmpty() || text.isNotEmpty()) {
+            vkLikesArray.add(VkLikesModel(title, text, type))
+        }
+
+        postTitle = ""
+        postText = ""
+        Log.e("likes", " $vkLikesArray")
+    }
+
+//    private fun getPrevValue(info: AccessibilityNodeInfo?) {
+//        info?.let {
+//            for (i in 0 until it.childCount) {
+//                val child = it.getChild(i)
+//                child?.let { ch ->
+//                    if(ch.text != null && ch.text.isNotEmpty()) {
+////                        Log.e("adf", "L4 ${ch.text}}")
+////                        prevLikeValue = "${ch.text}".toInt()
+//                    }
+//
+//                    getPrevValue(ch)
+//                }
+//            }
+//        }
+//    }
+
+    private fun getTextForVkPost(info: AccessibilityNodeInfo?) {
+        info?.let {
+            for (i in 0 until it.childCount) {
+                val child = it.getChild(i)
+                if(child != null) {
+//                    //                    if(ch.viewIdResourceName == VK_TV_LIKES_ID) {
+//                        Log.e("adf", "${child.text} ${child.viewIdResourceName}}")
+////                        prevLikeValue = "${ch.text}".toInt()
+////                    }
+                    getTextForVkPost(child)
+
+                    if (child.viewIdResourceName == VK_POSTER_NAME_VIEW_ID) {
+                        if(!postTitle.isEmpty())
+                            continue
+
+                        postTitle = "${child.text}"
+                    } else if (child.viewIdResourceName == VK_POST_VIEW_ID) {
+                        if(!postText.isEmpty())
+                            continue
+
+                        postText = "${child.text}"
+                    } else if(child.viewIdResourceName == VK_POST_VIEW_ID) {
+                        if(!postText.isEmpty())
+                            continue
+
+                        postText = "${child.text}"
+                    }
+                }
+            }
+        }
+    }
     private fun getLikeEvents(info: AccessibilityNodeInfo?) {
         info?.let {
             for (i in 0 until it.childCount) {
                 val child = it.getChild(i)
-                child?.let { ch ->
-                    if (ch.viewIdResourceName == VK_POSTER_NAME_VIEW_ID) {
-                        postTitle = "${ch.text}"
-                        return
-                    } else if (ch.viewIdResourceName == VK_POST_VIEW_ID) {
-                        postText = "${ch.text}"
-                        return
-                    }
+                if(child != null) {
+                    //                    if(ch.viewIdResourceName == VK_TV_LIKES_ID) {
+//                        Log.e("adf", "L3 ${child.text}}")
+//                        prevLikeValue = "${ch.text}".toInt()
+//                    }
 
-                    getLikeEvents(ch)
+                    if (child.viewIdResourceName == VK_POSTER_NAME_VIEW_ID) {
+                        if(!postTitle.isEmpty())
+                            continue
+
+                        postTitle = "${child.text}"
+                        getLikeEvents(child)
+//                        return
+                    } else if (child.viewIdResourceName == VK_POST_VIEW_ID) {
+                        if(!postText.isEmpty())
+                            continue
+
+                        postText = "${child.text}"
+                        getLikeEvents(child)
+//                        return
+                    } else if(child.viewIdResourceName == VK_POST_VIEW_ID) {
+                        if(!postText.isEmpty())
+                            continue
+
+                        postText = "${child.text}"
+                        getLikeEvents(child)
+//                        return
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showChildren(info: AccessibilityNodeInfo?, from: String? = "") {
+        info?.let {
+//            Log.e("-----", "----------- from: ${it.viewIdResourceName}")
+            for (i in 0 until it.childCount) {
+                val child = it.getChild(i)
+                child?.let { ch ->
+
+                        Log.e("ch", " from: ${from} ${ch.viewIdResourceName} ${ch.text}")
+                    showChildren(ch, ch.viewIdResourceName)
                 }
             }
         }
     }
 
     private fun getScrollPosition(event: AccessibilityEvent): Float {
-            val itemCount = event.itemCount
-            val fromIndex = event.fromIndex
+        val itemCount = event.itemCount
+        val fromIndex = event.fromIndex
 
-            // First, attempt to use (fromIndex / itemCount).
-            if (fromIndex >= 0 && itemCount > 0) {
-                return fromIndex / itemCount.toFloat()
+        // First, attempt to use (fromIndex / itemCount).
+        if (fromIndex >= 0 && itemCount > 0) {
+            return fromIndex / itemCount.toFloat()
+        }
+
+        val scrollY = event.scrollY
+        val maxScrollY = event.maxScrollY
+
+        if (scrollY > -1) {
+
+            // Next, attempt to use (scrollY / maxScrollY). This will fail if the
+            // getMaxScrollX() method is not available.
+            if (scrollY >= 0 && maxScrollY > 0) {
+                return scrollY / maxScrollY.toFloat()
             }
 
-            val scrollY = event.scrollY
-            val maxScrollY = event.maxScrollY
-
-            if (scrollY > -1) {
-
-                // Next, attempt to use (scrollY / maxScrollY). This will fail if the
-                // getMaxScrollX() method is not available.
-                if (scrollY >= 0 && maxScrollY > 0) {
-                    return scrollY / maxScrollY.toFloat()
-                }
-
-                // Finally, attempt to use (scrollY / itemCount).
-                // TODO(alanv): Hack from previous versions -- is it still needed?
-                return if (scrollY >= 0 && itemCount > 0 && scrollY <= itemCount) {
-                    scrollY / itemCount.toFloat()
-                } else -1f
-            }
+            // Finally, attempt to use (scrollY / itemCount).
+            // TODO(alanv): Hack from previous versions -- is it still needed?
+            return if (scrollY >= 0 && itemCount > 0 && scrollY <= itemCount) {
+                scrollY / itemCount.toFloat()
+            } else -1f
+        }
 
         return -1f
     }
@@ -246,7 +373,6 @@ class MyAccessibilityService : AccessibilityService() {
             var counter = 0
             var parent = info.parent
             while (parent != null) {
-                Log.e("--- counter", " ${counter++}")
                 if (parent.parent != null)
                     parent = parent.parent
                 else break
@@ -314,7 +440,7 @@ class MyAccessibilityService : AccessibilityService() {
 
 
                     // Search for package
-                    if (event.eventType == TYPE_WINDOW_CONTENT_CHANGED) {
+                    if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
                         packageNameList.forEach { packageName ->
                             if (ch.packageName == packageName) {
 
