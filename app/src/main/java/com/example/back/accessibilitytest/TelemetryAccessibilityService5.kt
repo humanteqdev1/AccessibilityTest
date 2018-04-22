@@ -8,8 +8,9 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.back.accessibilitytest.models.VkLikesModel
+import java.util.*
 
-class TelemetryAccessibilityService4 : AccessibilityService() {
+class TelemetryAccessibilityService5 : AccessibilityService() {
     private val URL = "URL"
     private val VIEW = "android.view.View"
     private val WEBVIEW = "android.webkit.WebView"
@@ -20,6 +21,8 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
     private val YANDEX_BROWSER = "com.yandex.browser"
     private val TELEGRAM = "org.mozilla.firefox"
     private val VK = "com.vkontakte.android"
+    private val FB = "com.facebook.katana"
+    private val WHATSAPP = "com.whatsapp"
     private val MOZILLA_FIREFOX_URL_BAR_ID = "$MOZILLA_FIREFOX:id/url_bar_title"
     private val CHROME_URL_BAR_ID = "$CHROME:id/url_bar"
     private val YANDEX_BROWSER_URL_BAR_ID = "$YANDEX_BROWSER:id/bro_omnibar_address_title_view"
@@ -34,6 +37,11 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
     private val VK_POSTER_NAME_VIEW_ID = "$VK:id/poster_name_view"
     private val VK_GROUP_TITLE_ID = "$VK:id/title"
     private val VK_GROUP_LIST_ID = "$VK:id/list"
+
+    private val WHATSAPP_SINGLE_MSG_ID = "$WHATSAPP:id/single_msg_tv"
+    private val WHATSAPP_MESSAGE_TEXT_ID = "$WHATSAPP:id/message_text"
+    private val WHATSAPP_CONTACT_NAME_ID = "$WHATSAPP:id/conversation_contact_name"
+
     private val MOZILLA_FIREFOX_BROWSER_TOOLBAR_ID = "org.mozilla.firefox:id/browser_toolbar"
 
     private val urlArray = arrayListOf<Triple<String?, Long?, Float>>()
@@ -49,6 +57,10 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
     private val vkClickedTextArray = arrayListOf<String>()
     private val vkGroupArray = arrayListOf<String>()
     private val vkGroupClicksArray = arrayListOf<String>()
+
+    private val whatsappSingleMsgSet = HashSet<String>()
+    private val whatsappMessagesSet = HashSet<String>()
+    private val whatsappClicksSet = HashSet<String>()
 
     override fun onInterrupt() {
         Log.e("INTERRUPT", " onInterrupt")
@@ -76,10 +88,6 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
         event?.let {
 //            showEverything(it)
 
-            collect(rootInActiveWindow, arrayListOf(MOZILLA_FIREFOX,
-                    CHROME,
-                    YANDEX_BROWSER), arrayListOf(URL), it)
-
 //            val eventTextPair = getTextFromEvents(event,
 //                    arrayListOf(MOZILLA_FIREFOX, CHROME),
 //                    arrayListOf(URL),
@@ -88,26 +96,92 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
 //                Log.e("events", "event pair: $eventTextPair")
 
 
-            collectForVK(event)
+//            collectForVK(event)
+//            collectForBrowsers(event)
+//            collectForWhatsapp(event)
+            collectForViber(event)
+        }
+    }
 
-            /**
-             * Collecting top scroll offset
-             * Not working for: Firefox;
-             * Works for: Chrome, Yandex;
-             */
-            if (event.eventType == TYPE_VIEW_SCROLLED && event.className == WEBVIEW) {
-                val scrollY = getScrollPosition(event)
-                if (scrollY > prevScrollY)
-                    prevScrollY = scrollY
+    private fun collectForViber(event: AccessibilityEvent) {
+
+    }
+
+    private fun collectForWhatsapp(event: AccessibilityEvent) {
+        if (event.packageName == WHATSAPP) {
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_VIEW_CONTEXT_CLICKED) {
+                if (event.text != null && event.text.isNotEmpty())
+                    whatsappClicksSet.add("${event.text}")
             }
 
-            if (urlArray.isNotEmpty()) {
-                Log.e("map", "$urlArray")
+            saveEverythingUserCanSee(event)
+
+            if (whatsappClicksSet.isNotEmpty())
+                Log.e("tw", "clicks: ${whatsappClicksSet}")
+            if (whatsappMessagesSet.isNotEmpty())
+                Log.e("tw", "messages: ${whatsappMessagesSet}")
+            if (whatsappSingleMsgSet.isNotEmpty())
+                Log.e("tw", "single: ${whatsappSingleMsgSet}")
+        }
+    }
+
+    private fun saveEverythingUserCanSee(event: AccessibilityEvent) {
+        var parent = event.source
+        while (parent != null) {
+            if (parent.parent != null)
+                parent = parent.parent
+            else break
+        }
+
+        saveWhatsappText(parent)
+    }
+
+    private fun saveWhatsappText(info: AccessibilityNodeInfo?) {
+        info?.let {
+            for (i in 0 until it.childCount) {
+                val child = it.getChild(i)
+                child?.let { ch ->
+
+                    if (ch.viewIdResourceName == WHATSAPP_SINGLE_MSG_ID) {
+                        if (ch.text != null && ch.text.isNotEmpty()) {
+                            whatsappSingleMsgSet.add("${ch.text}")
+                        }
+                    }
+                    if (ch.viewIdResourceName == WHATSAPP_MESSAGE_TEXT_ID) {
+                        if (ch.text != null && ch.text.isNotEmpty()) {
+                            whatsappMessagesSet.add("${ch.text}")
+                        }
+                    }
+
+                    saveWhatsappText(ch)
+                }
             }
         }
     }
 
+    private fun collectForBrowsers(event: AccessibilityEvent) {
+        collect(rootInActiveWindow, arrayListOf(MOZILLA_FIREFOX,
+                CHROME,
+                YANDEX_BROWSER), arrayListOf(URL), event)
+        /**
+         * Collecting top scroll offset
+         * Not working for: Firefox;
+         * Works for: Chrome, Yandex;
+         */
+        if (event.eventType == TYPE_VIEW_SCROLLED && event.className == WEBVIEW) {
+            val scrollY = getScrollPosition(event)
+            if (scrollY > prevScrollY)
+                prevScrollY = scrollY
+        }
+
+        if (urlArray.isNotEmpty()) {
+            Log.e("map", "$urlArray")
+        }
+    }
     private fun showEverything(event: AccessibilityEvent) {
+//        if(event.packageName != FB)
+//            return
+
         if (event.text != null && event.text.isNotEmpty())
             Log.e("234", " ${event.source?.viewIdResourceName} ${event.text} ${event.eventType}")
 
@@ -311,7 +385,9 @@ class TelemetryAccessibilityService4 : AccessibilityService() {
                 val child = it.getChild(i)
                 child?.let { ch ->
 
+                    if (ch.text != null)
                         Log.e("ch", " from: ${from} ${ch.viewIdResourceName} ${ch.text}")
+
                     showChildren(ch, ch.viewIdResourceName)
                 }
             }

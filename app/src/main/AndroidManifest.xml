@@ -17,7 +17,8 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".TelemetryAccessibilityService4"
+        <service
+            android:name=".TelemetryAccessibilityService5"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:enabled="true">
             <intent-filter>
