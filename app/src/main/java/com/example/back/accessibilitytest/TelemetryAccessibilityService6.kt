@@ -6,11 +6,12 @@ import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED
+import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.back.accessibilitytest.models.VkLikesModel
 import java.util.*
 
-class TelemetryAccessibilityService5 : AccessibilityService() {
+class TelemetryAccessibilityService6 : AccessibilityService() {
     private val URL = "URL"
     private val VIEW = "android.view.View"
     private val WEBVIEW = "android.webkit.WebView"
@@ -23,6 +24,7 @@ class TelemetryAccessibilityService5 : AccessibilityService() {
     private val VK = "com.vkontakte.android"
     private val FB = "com.facebook.katana"
     private val WHATSAPP = "com.whatsapp"
+    private val VIBER = "com.viber.voip"
     private val MOZILLA_FIREFOX_URL_BAR_ID = "$MOZILLA_FIREFOX:id/url_bar_title"
     private val CHROME_URL_BAR_ID = "$CHROME:id/url_bar"
     private val YANDEX_BROWSER_URL_BAR_ID = "$YANDEX_BROWSER:id/bro_omnibar_address_title_view"
@@ -88,17 +90,17 @@ class TelemetryAccessibilityService5 : AccessibilityService() {
         event?.let {
 //            showEverything(it)
 
-//            val eventTextPair = getTextFromEvents(event,
-//                    arrayListOf(MOZILLA_FIREFOX, CHROME),
-//                    arrayListOf(URL),
-//                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
-//            if(eventTextPair != null)
-//                Log.e("events", "event pair: $eventTextPair")
+            val eventTextPair = getTextFromEvents(event,
+                    arrayListOf(MOZILLA_FIREFOX, CHROME),
+                    arrayListOf(URL),
+                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
+            if(eventTextPair != null)
+                Log.e("events", "event pair: $eventTextPair")
 
 
-//            collectForVK(event)
-//            collectForBrowsers(event)
-//            collectForWhatsapp(event)
+            collectForVK(event)
+            collectForBrowsers(event)
+            collectForWhatsapp(event)
             collectForViber(event)
         }
     }
@@ -179,8 +181,8 @@ class TelemetryAccessibilityService5 : AccessibilityService() {
         }
     }
     private fun showEverything(event: AccessibilityEvent) {
-//        if(event.packageName != FB)
-//            return
+        if(event.packageName != VIBER)
+            return
 
         if (event.text != null && event.text.isNotEmpty())
             Log.e("234", " ${event.source?.viewIdResourceName} ${event.text} ${event.eventType}")
