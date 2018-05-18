@@ -11,7 +11,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.example.back.accessibilitytest.models.VkLikesModel
 import java.util.*
 
-class TelemetryAccessibilityService6 : AccessibilityService() {
+class TelemetryAccessibilityService7 : AccessibilityService() {
     private val URL = "URL"
     private val VIEW = "android.view.View"
     private val WEBVIEW = "android.webkit.WebView"
@@ -88,20 +88,20 @@ class TelemetryAccessibilityService6 : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event?.let {
-//            showEverything(it)
+            showEverything(it)
 
-            val eventTextPair = getTextFromEvents(event,
-                    arrayListOf(MOZILLA_FIREFOX, CHROME),
-                    arrayListOf(URL),
-                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
-            if(eventTextPair != null)
-                Log.e("events", "event pair: $eventTextPair")
-
-
-            collectForVK(event)
-            collectForBrowsers(event)
-            collectForWhatsapp(event)
-            collectForViber(event)
+//            val eventTextPair = getTextFromEvents(event,
+//                    arrayListOf(MOZILLA_FIREFOX, CHROME),
+//                    arrayListOf(URL),
+//                    TYPE_VIEW_TEXT_SELECTION_CHANGED)
+//            if(eventTextPair != null)
+//                Log.e("events", "event pair: $eventTextPair")
+//
+//
+//            collectForVK(event)
+//            collectForBrowsers(event)
+//            collectForWhatsapp(event)
+//            collectForViber(event)
         }
     }
 
@@ -181,8 +181,8 @@ class TelemetryAccessibilityService6 : AccessibilityService() {
         }
     }
     private fun showEverything(event: AccessibilityEvent) {
-        if(event.packageName != VIBER)
-            return
+//        if(event.packageName != VIBER)
+//            return
 
         if (event.text != null && event.text.isNotEmpty())
             Log.e("234", " ${event.source?.viewIdResourceName} ${event.text} ${event.eventType}")
@@ -382,7 +382,8 @@ class TelemetryAccessibilityService6 : AccessibilityService() {
 
     private fun showChildren(info: AccessibilityNodeInfo?, from: String? = "") {
         info?.let {
-//            Log.e("-----", "----------- from: ${it.viewIdResourceName}")
+            Log.e("234", "from: ${it.viewIdResourceName}")
+//            Log.e("234", "----------- from: ${it.viewIdResourceName}")
             for (i in 0 until it.childCount) {
                 val child = it.getChild(i)
                 child?.let { ch ->

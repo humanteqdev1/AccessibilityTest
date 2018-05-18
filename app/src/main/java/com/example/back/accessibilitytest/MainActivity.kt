@@ -15,6 +15,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        Log.e("234", "2032-3094520")
+
         if(!isAccessibilityEnabled("com.example.back.accessibilitytest/.MyAccessibilityService")) {
             val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
             startActivityForResult(intent, 0)
